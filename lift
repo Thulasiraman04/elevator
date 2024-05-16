@@ -1,0 +1,85 @@
+module ElevatorController(
+    input wire clk,        // Clock input
+    input wire reset,      // Reset input
+    input wire [5:0] floor_request,  // Floor request input (60 floors)
+    output reg [5:0] current_floor, // Current floor output
+    output reg door_open    // Door open output
+);
+
+// Internal parameters
+parameter NUM_FLOORS = 60;
+parameter FLOOR_DELAY = 10; // Time to move between floors
+
+// Internal state variables
+reg [5:0] target_floor; // Target floor
+reg [1:0] state;        // Elevator state: 0 - Idle, 1 - Moving Up, 2 - Moving Down
+reg [5:0] floor_timer;  // Timer for floor movement
+
+// Define states
+localparam IDLE = 2'b00;
+localparam MOVING_UP = 2'b01;
+localparam MOVING_DOWN = 2'b10;
+
+// Initial values
+initial begin
+    state = IDLE;
+    current_floor = 0;
+    target_floor = 0;
+    floor_timer = 0;
+    door_open = 0;
+end
+
+// State machine
+always @(posedge clk) begin
+    if (reset) begin
+        state <= IDLE;
+        current_floor <= 0;
+        target_floor <= 0;
+        floor_timer <= 0;
+        door_open <= 0;
+    end else begin
+        case (state)
+            IDLE: begin
+                // Check for new floor requests
+                if (floor_request[current_floor]) begin
+                    door_open <= 1;
+                    // Wait for some time with the door open
+                    // Adjust this delay based on your system requirements
+                    // This is a simple delay for demonstration purposes
+                    #1000 door_open <= 0;
+                end else if (floor_request !== 0) begin
+                    // Find the nearest floor request and set the target floor
+                    target_floor <= $ffs(floor_request) - 1;
+                    if (target_floor > current_floor)
+                        state <= MOVING_UP;
+                    else if (target_floor < current_floor)
+                        state <= MOVING_DOWN;
+                end
+            end
+            MOVING_UP: begin
+                // Move the elevator up
+                if (floor_timer >= FLOOR_DELAY) begin
+                    current_floor <= current_floor + 1;
+                    floor_timer <= 0;
+                end else begin
+                    floor_timer <= floor_timer + 1;
+                end
+                if (current_floor == target_floor)
+                    state <= IDLE;
+            end
+            MOVING_DOWN: begin
+                // Move the elevator down
+                if (floor_timer >= FLOOR_DELAY) begin
+                    current_floor <= current_floor - 1;
+                    floor_timer <= 0;
+                end else begin
+                    floor_timer <= floor_timer + 1;
+                end
+                if (current_floor == target_floor)
+                    state <= IDLE;
+            end
+        endcase
+    end
+end
+
+endmodule
